@@ -18,11 +18,11 @@ from __future__ import annotations
 import pathlib
 import pickle
 import sys
-from typing import Dict, Iterable, List, Set, Tuple
+from typing import Any, Dict, Iterable, List, Set, Tuple
 
 import yaml
 
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 BLOCK_SHIFT = 8  # 256-codepoint buckets for fast narrowing
 BLOCK_SIZE = 1 << BLOCK_SHIFT
 
@@ -75,16 +75,48 @@ class FontIndex:
         return inst
 
 
-def parse_range(range_str: str, family: str) -> tuple[int, int, str]:
+def _parse_codepoint(value: Any) -> int:
     """
-    Parse range strings like 'U+0041' or 'U+0041-U+005A' into a Range.
+    Accept legacy string codepoints (e.g. 'U+0041' or '0041'), hex strings like
+    '0x0041', or integers.
     """
-    if "-" in range_str:
-        start_str, end_str = range_str.split("-", 1)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        val = value.strip()
+        if val.upper().startswith("U+"):
+            val = val[2:]
+        return int(val, 16 if val.lower().startswith("0x") or all(ch in "0123456789ABCDEFabcdef" for ch in val) else 10)
+    raise TypeError(f"Unsupported codepoint value: {value!r}")
+
+
+def parse_range(range_item: Any, family: str) -> tuple[int, int, str]:
+    """
+    Parse range representations:
+        - 'U+0041' or 'U+0041-U+005A'
+        - 'U+0041..U+005A'
+        - [0x0041, 0x005A] (new format)
+    """
+    if isinstance(range_item, str):
+        if ".." in range_item:
+            start_str, end_str = range_item.split("..", 1)
+        elif "-" in range_item:
+            start_str, end_str = range_item.split("-", 1)
+        else:
+            start_str = end_str = range_item
+        start = _parse_codepoint(start_str)
+        end = _parse_codepoint(end_str)
+    elif isinstance(range_item, (list, tuple)):
+        if len(range_item) == 1:
+            start = end = _parse_codepoint(range_item[0])
+        elif len(range_item) == 2:
+            start = _parse_codepoint(range_item[0])
+            end = _parse_codepoint(range_item[1])
+        else:
+            raise ValueError(f"Unexpected range list length: {range_item!r}")
     else:
-        start_str = end_str = range_str
-    start = int(start_str[2:], 16)
-    end = int(end_str[2:], 16)
+        raise TypeError(f"Unsupported range type: {type(range_item)}")
+    start, end = (start, end) if start <= end else (end, start)
     return (start, end, family)
 
 

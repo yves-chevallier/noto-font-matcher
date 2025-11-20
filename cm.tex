@@ -1,0 +1,92 @@
+\documentclass{article}
+\usepackage{fontspec}
+\usepackage{microtype}
+\usepackage{unicode-math}
+\usepackage{amsmath}
+
+\defaultfontfeatures{
+  Ligatures = TeX,
+  Scale     = MatchLowercase,
+}
+
+\directlua{
+  luaotfload.add_fallback("mainfallback", {
+    "Noto Serif:mode=harf;",
+    "Noto Sans:mode=harf;",
+    "NotoSansCJKhk:mode=harf;",
+    "NotoColorEmoji:mode=harf;"
+  })
+  luaotfload.add_fallback("sansfallback", {
+    "Noto Sans:mode=harf;",
+    "NotoSansCJKhk:mode=harf;",
+    "NotoColorEmoji:mode=harf;"
+  })
+  luaotfload.add_fallback("monofallback", {
+    "Noto Sans Mono:mode=harf;",
+    "NotoSansCJKhk:mode=harf;",
+    "NotoColorEmoji:mode=harf;"
+  })
+}
+
+\setmainfont{CMU Serif}[RawFeature = {fallback=mainfallback}]
+\setsansfont{CMU Sans Serif}[RawFeature = {fallback=sansfallback}]
+\setmonofont{CMU Typewriter Text}[RawFeature = {fallback=monofallback}]
+\setmathfont{Latin Modern Math}
+
+% Standard LaTeX (Sans Serif)
+% \setmainfont{CMU Sans Serif}
+% \setsansfont{CMU Sans Serif}
+% \setmonofont{CMU Typewriter Text}
+% \setmathfont{Latin Modern Math}
+% No TU/CMUSansSerif(0)/m/sc, TU/CMUSansSerif(0)/b/sc
+
+% Standard LaTeX (Sans-Serif)
+% \setsansfont{TeX Gyre Pagella}
+% \setmainfont{TeX Gyre Pagella}
+% \setmonofont{DejaVu Sans Mono}
+% \setmathfont{TeX Gyre Pagella Math}
+
+% Fine
+% \setsansfont{TeX Gyre Adventor}
+% \setmainfont{TeX Gyre Adventor}
+% \setmonofont{IBM Plex Mono}
+% \setmathfont{TeX Gyre Pagella Math}
+
+% Elegant
+% \setsansfont{Source Sans Pro}
+% \setmainfont{Source Sans Pro}
+% \setmonofont{Source Code Pro}
+% \setmathfont{Latin Modern Math}
+
+
+
+
+\setlength{\parindent}{0pt}
+\begin{document}
+\section{Section 💩}
+\subsection{Subsection}
+
+The quick brown fox jumps over the lazy dog. \\
+\textit{The quick brown fox jumps over the lazy dog.} \\
+\textbf{The quick brown fox jumps over the lazy dog.} \\
+\textbf{\textit{The quick brown fox jumps over the lazy dog.}} \\
+\textsc{The quick brown fox jumps over the lazy dog.} \\
+\textbf{\textsc{The quick brown fox jumps over the lazy dog.}} \\
+
+\texttt{The quick brown fox jumps over the lazy dog.} \\
+\textbf{\texttt{The quick brown fox jumps over the lazy dog.}} \\
+\textit{\texttt{The quick brown fox jumps over the lazy dog.}} \\
+\textbf{\textit{\texttt{The quick brown fox jumps over the lazy dog.}}} \\
+
+ふるいけやかわずとび \textbf{こむみずのおと}
+
+Here is some inline math: \( E = mc^2 \).
+
+\begin{align*}
+    \nabla \cdot \mathbf{E} & = \frac{\rho}{\varepsilon_0} \\
+    \nabla \cdot \mathbf{B} & = 0~\text{No monopole magnetic charges} \\
+    \nabla \times \mathbf{E} & = -\frac{\partial \mathbf{B}}{\partial t} \\
+    \nabla \times \mathbf{B} & = \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t}
+\end{align*}
+
+\end{document}

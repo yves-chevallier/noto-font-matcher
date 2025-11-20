@@ -9,7 +9,7 @@ Usage:
 
 Outputs:
     - fonts/ directory containing downloaded TTFs (keeps family subfolders)
-    - fonts.yaml describing filename, family, and Unicode ranges covered
+    - fonts.yaml describing files per family and their shared Unicode ranges
 """
 
 import argparse
@@ -17,7 +17,7 @@ import itertools
 import pathlib
 import re
 import sys
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Sequence, Tuple
 
 import requests
 import yaml
@@ -33,6 +33,26 @@ INDEX_URL = "https://notofonts.github.io/"
 ROOT = pathlib.Path(__file__).resolve().parent
 FONTS_DIR = ROOT / "fonts"
 DB_PATH = ROOT / "fonts.yaml"
+
+
+class HexInt(int):
+    """Marker int so PyYAML dumps codepoints in hex."""
+
+
+class HexDumper(yaml.SafeDumper):
+    """Safe dumper that renders tuples in flow style and HexInt as hex."""
+
+
+def _represent_hexint(dumper: yaml.SafeDumper, data: HexInt):
+    return dumper.represent_scalar("tag:yaml.org,2002:int", f"0x{int(data):04X}")
+
+
+def _represent_tuple(dumper: yaml.SafeDumper, data: Sequence):
+    return dumper.represent_sequence("tag:yaml.org,2002:seq", data, flow_style=True)
+
+
+HexDumper.add_representer(HexInt, _represent_hexint)
+HexDumper.add_representer(tuple, _represent_tuple)
 
 
 def build_session() -> requests.Session:
@@ -134,20 +154,17 @@ def download_file(session: requests.Session, url: str, dest: pathlib.Path) -> No
                     fh.write(chunk)
 
 
-def to_ranges(codepoints: Iterable[int]) -> List[str]:
-    """Convert a sorted iterable of codepoints to compact hex ranges."""
-    ranges: List[str] = []
+def to_ranges(codepoints: Iterable[int]) -> List[Tuple[int, int]]:
+    """Convert a sorted iterable of codepoints to compact ranges."""
+    ranges: List[Tuple[int, int]] = []
     for key, group in itertools.groupby(enumerate(codepoints), lambda ic: ic[0] - ic[1]):
         group_list = [cp for _, cp in group]
         start, end = group_list[0], group_list[-1]
-        if start == end:
-            ranges.append(f"U+{start:04X}")
-        else:
-            ranges.append(f"U+{start:04X}-U+{end:04X}")
+        ranges.append((start, end))
     return ranges
 
 
-def unicode_ranges(ttf_path: pathlib.Path) -> List[str]:
+def unicode_ranges(ttf_path: pathlib.Path) -> List[Tuple[int, int]]:
     font = TTFont(ttf_path, recalcBBoxes=False, lazy=True)
     cmap = font["cmap"]
     codepoints = sorted({cp for table in cmap.tables for cp in table.cmap.keys()})
@@ -214,22 +231,36 @@ def main() -> int:
             download_file(session, url, dest)
 
     print("Building coverage database…")
-    entries = []
+    grouped: Dict[Tuple[str, Tuple[Tuple[int, int], ...]], Dict] = {}
     for font_path in sorted(FONTS_DIR.rglob("*.*")):
         if font_path.suffix.lower() not in {".ttf", ".otf", ".ttc"}:
             continue
         family = font_path.parent.name  # fonts/<family>/file
         ranges = unicode_ranges(font_path)
+        key = (family, tuple(ranges))
+        entry = grouped.setdefault(
+            key,
+            {
+                "family": family,
+                "files": [],
+                "unicode_ranges": ranges,
+            },
+        )
+        entry["files"].append(str(font_path.relative_to(ROOT)))
+
+    entries: List[Dict] = []
+    for (family, ranges), entry in grouped.items():
         entries.append(
             {
                 "family": family,
-                "file": str(font_path.relative_to(ROOT)),
-                "unicode_ranges": ranges,
+                "files": sorted(dict.fromkeys(entry["files"])),
+                "unicode_ranges": [(HexInt(start), HexInt(end)) for start, end in ranges],
             }
         )
 
+    entries.sort(key=lambda e: (e["family"], e["unicode_ranges"]))
     with DB_PATH.open("w", encoding="utf-8") as fh:
-        yaml.dump(entries, fh, sort_keys=False, allow_unicode=False)
+        yaml.dump(entries, fh, Dumper=HexDumper, sort_keys=False, allow_unicode=False, width=120)
 
     print(f"Done. Fonts saved under {FONTS_DIR} and metadata in {DB_PATH}.")
     return 0
