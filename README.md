@@ -41,3 +41,28 @@ For \LaTeX, OTF is generally preferred over TTF due to better support for advanc
 - STIX Two
 
 Use Noto for the fallback unicode (Emoji, CJK, etc.)
+
+% Standard LaTeX (Sans Serif)
+% \setmainfont{CMU Sans Serif}
+% \setsansfont{CMU Sans Serif}
+% \setmonofont{CMU Typewriter Text}
+% \setmathfont{Latin Modern Math}
+% No TU/CMUSansSerif(0)/m/sc, TU/CMUSansSerif(0)/b/sc
+
+% Standard LaTeX (Sans-Serif)
+% \setsansfont{TeX Gyre Pagella}
+% \setmainfont{TeX Gyre Pagella}
+% \setmonofont{DejaVu Sans Mono}
+% \setmathfont{TeX Gyre Pagella Math}
+
+% Fine
+% \setsansfont{TeX Gyre Adventor}
+% \setmainfont{TeX Gyre Adventor}
+% \setmonofont{IBM Plex Mono}
+% \setmathfont{TeX Gyre Pagella Math}
+
+% Elegant
+% \setsansfont{Source Sans Pro}
+% \setmainfont{Source Sans Pro}
+% \setmonofont{Source Code Pro}
+% \setmathfont{Latin Modern Math}

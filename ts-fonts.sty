@@ -1,0 +1,125 @@
+\ProvidesPackage{ts-fonts}[2025/11/20 TeXSmith Unified font setup]
+
+\RequirePackage{iftex}
+\RequirePackage{microtype}
+
+\ifPDFTeX
+  \RequirePackage[T1]{fontenc}
+  \RequirePackage[utf8]{inputenc}
+  \RequirePackage{lmodern}
+  \microtypesetup{expansion=true,protrusion=true}
+\else
+  \RequirePackage{fontspec}
+  \RequirePackage{unicode-math}
+  \defaultfontfeatures{
+    Ligatures = TeX,
+    Scale = MatchLowercase,
+  }
+
+  % Helper: explicit CMU file setup (used for XeLaTeX where font discovery can fail)
+  \newcommand*\ts@setupcmu@files{%
+    \setmainfont[
+      Path       = /usr/share/fonts/truetype/cmu/,
+      UprightFont= *nrm,
+      BoldFont   = *nbx,
+      ItalicFont = *nti,
+      BoldItalicFont = *nbi,
+    ]{CMU Serif}%
+    \setsansfont[
+      Path       = /usr/share/fonts/truetype/cmu/,
+      UprightFont= *nss,
+      BoldFont   = *nsx,
+      ItalicFont = *nsi,
+      BoldItalicFont = *nso,
+    ]{CMU Sans Serif}%
+    \setmonofont[
+      Path       = /usr/share/fonts/truetype/cmu/,
+      UprightFont= *tt,
+      BoldFont   = *tb,
+      ItalicFont = *ti,
+      BoldItalicFont = *tx,
+    ]{CMU Typewriter Text}%
+    \setmathfont{Latin Modern Math}%
+  }
+
+  \ifLuaTeX
+    \UseMicrotypeSet[protrusion]{basicmath}
+
+    \directlua{
+      luaotfload.add_fallback("mainfb-reg", {
+        "Noto Sans CJK HK:mode=harf;",
+        "Noto Color Emoji:mode=harf;"
+      })
+      luaotfload.add_fallback("mainfb-bold", {
+        "Noto Sans CJK HK/B:mode=harf;",
+        "Noto Color Emoji:mode=harf;"
+      })
+      luaotfload.add_fallback("mainfb-it", {
+        "Noto Sans CJK HK/I:mode=harf;",
+        "Noto Color Emoji:mode=harf;"
+      })
+      luaotfload.add_fallback("mainfb-bi", {
+        "Noto Sans CJK HK/BI:mode=harf;",
+        "Noto Color Emoji:mode=harf;"
+      })
+    }
+
+    \setmainfont{CMU Serif}[
+      RawFeature = {fallback=mainfb-reg},
+      BoldFeatures = {RawFeature={fallback=mainfb-bold}},
+      ItalicFeatures = {RawFeature={fallback=mainfb-it}},
+      BoldItalicFeatures = {RawFeature={fallback=mainfb-bi}},
+    ]
+
+    \setsansfont{CMU Sans Serif}[
+      RawFeature = {fallback=mainfb-reg},
+      BoldFeatures  = {RawFeature={fallback=mainfb-bold}},
+      ItalicFeatures = {RawFeature={fallback=mainfb-it}},
+      BoldItalicFeatures = {RawFeature={fallback=mainfb-bi}},
+    ]
+
+    \setmonofont{CMU Typewriter Text}[
+      RawFeature = {fallback=mainfb-reg},
+      BoldFeatures = {RawFeature={fallback=mainfb-bold}},
+      ItalicFeatures = {RawFeature={fallback=mainfb-it}},
+      BoldItalicFeatures = {RawFeature={fallback=mainfb-bi}},
+    ]
+
+    \setmathfont{Latin Modern Math}
+  \else
+    % XeLaTeX path (no Lua fallbacks); if fontconfig lookup fails, fall back to explicit file paths.
+    \IfFontExistsTF{CMU Serif}{%
+      \setmainfont{CMU Serif}
+      \setsansfont{CMU Sans Serif}
+      \setmonofont{CMU Typewriter Text}
+      \setmathfont{Latin Modern Math}
+    }{%
+      \ts@setupcmu@files
+    }%
+
+    % Add manual fallbacks for CJK and emoji with ucharclasses.
+    \RequirePackage{ucharclasses}
+    \newfontfamily\tsCJK{Noto Sans CJK HK}[Scale=MatchLowercase]
+    \IfFontExistsTF{Noto Color Emoji}{%
+      \newfontfamily\tsEmoji{Noto Color Emoji}[Renderer=Harfbuzz]
+    }{%
+      \IfFontExistsTF{Noto Emoji}{%
+        \newfontfamily\tsEmoji{Noto Emoji}[Renderer=Harfbuzz]
+      }{%
+        \IfFontExistsTF{Symbola}{%
+          \newfontfamily\tsEmoji{Symbola}
+        }{%
+          \newfontfamily\tsEmoji{CMU Serif} % last-resort placeholder
+        }%
+      }%
+    }%
+    \setDefaultTransitions{}{} % keep current font as default
+    \setTransitionTo{Hiragana}{\tsCJK}
+    \setTransitionTo{Katakana}{\tsCJK}
+    \setTransitionTo{Han}{\tsCJK}
+    \setTransitionTo{Emoticons}{\tsEmoji}
+    \setTransitionTo{MiscellaneousSymbolsAndPictographs}{\tsEmoji}
+    \setTransitionTo{SupplementalSymbolsAndPictographs}{\tsEmoji}
+    \setTransitionTo{TransportAndMapSymbols}{\tsEmoji}
+  \fi
+\fi
