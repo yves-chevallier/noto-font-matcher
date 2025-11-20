@@ -1,8 +1,69 @@
-\ProvidesPackage{ts-fonts}[2025/11/20 TeXSmith Unified font setup]
+\ProvidesPackage{ts-fonts}[2025/11/21 TeXSmith Unified font setup with options]
+% Purpose:
+% - PDFTeX: fallback to lm + inputenc/fontenc.
+% - LuaLaTeX: CMU + luaotfload fallbacks (CJK + emoji).
+% - XeLaTeX: CMU + ucharclasses routing to CJK/emoji fonts.
+% Options (defaults preserve previous behaviour):
+%   cjkfont=<name>     default "Noto Sans CJK HK"
+%   emoji=<name|auto>  default auto (Color Emoji → Emoji → Symbola → CMU)
+%   fontsdir=<path>    optional, forces Path=... for CMU/CJK/emoji
+%   nomath             skip \setmathfont
+%   nouchar            (XeLaTeX) disable ucharclasses fallbacks
+%   nolualfallback     (LuaLaTeX) disable luaotfload.add_fallback
 
 \RequirePackage{iftex}
 \RequirePackage{microtype}
+\RequirePackage{kvoptions}
+\makeatletter
 
+% ---------- Options ----------
+\SetupKeyvalOptions{family=tsfonts,prefix=ts@}
+\DeclareStringOption[Noto Sans CJK HK]{cjkfont}
+\DeclareStringOption[auto]{emoji}
+\DeclareStringOption[]{fontsdir}
+\DeclareBoolOption[false]{nomath}
+\DeclareBoolOption[false]{nouchar}
+\DeclareBoolOption[false]{nolualfallback}
+\ProcessKeyvalOptions*
+
+% Normalize Path option once for reuse.
+\providecommand\ts@fontsdir{}%
+\newcommand*\ts@PathOpt{}
+\ifx\ts@fontsdir\@empty
+  \let\ts@PathOpt\@empty
+\else
+  \edef\ts@PathOpt{Path=\ts@fontsdir/,}%
+\fi
+
+% Helper: resolve emoji font (auto chain or explicit).
+\newcommand*\ts@pickemoji{%
+  \gdef\ts@emojiResolved{}%
+  \edef\ts@emojiOption{\ts@emoji}%
+  \edef\ts@emojiTrimmed{\ts@emojiOption}%
+  \def\ts@auto{auto}%
+  \ifx\ts@emojiTrimmed\ts@auto
+    \@ifpackageloaded{fontspec}{}{%
+      \PackageError{ts-fonts}{fontspec is required for emoji auto-detection}{}%
+    }%
+    \IfFontExistsTF{Noto Color Emoji}{%
+      \gdef\ts@emojiResolved{Noto Color Emoji}%
+    }{%
+      \IfFontExistsTF{Noto Emoji}{%
+        \gdef\ts@emojiResolved{Noto Emoji}%
+      }{%
+        \IfFontExistsTF{Symbola}{%
+          \gdef\ts@emojiResolved{Symbola}%
+        }{%
+          \gdef\ts@emojiResolved{CMU Serif}%
+        }%
+      }%
+    }%
+  \else
+    \xdef\ts@emojiResolved{\ts@emojiTrimmed}%
+  \fi
+}
+
+% ---------- Engine branches ----------
 \ifPDFTeX
   \RequirePackage[T1]{fontenc}
   \RequirePackage[utf8]{inputenc}
@@ -16,53 +77,62 @@
     Scale = MatchLowercase,
   }
 
-  % Helper: explicit CMU file setup (used for XeLaTeX where font discovery can fail)
+  % Helper: explicit CMU file setup (used when font discovery fails or fontsdir is set)
   \newcommand*\ts@setupcmu@files{%
     \setmainfont[
-      Path       = /usr/share/fonts/truetype/cmu/,
+      \ts@PathOpt
       UprightFont= *nrm,
       BoldFont   = *nbx,
       ItalicFont = *nti,
       BoldItalicFont = *nbi,
     ]{CMU Serif}%
     \setsansfont[
-      Path       = /usr/share/fonts/truetype/cmu/,
+      \ts@PathOpt
       UprightFont= *nss,
       BoldFont   = *nsx,
       ItalicFont = *nsi,
       BoldItalicFont = *nso,
     ]{CMU Sans Serif}%
     \setmonofont[
-      Path       = /usr/share/fonts/truetype/cmu/,
+      \ts@PathOpt
       UprightFont= *tt,
       BoldFont   = *tb,
       ItalicFont = *ti,
       BoldItalicFont = *tx,
     ]{CMU Typewriter Text}%
-    \setmathfont{Latin Modern Math}%
+    \ifts@nomath\else
+      \setmathfont{Latin Modern Math}%
+    \fi
   }
 
   \ifLuaTeX
     \UseMicrotypeSet[protrusion]{basicmath}
 
-    \directlua{
-      luaotfload.add_fallback("mainfb-reg", {
-        "Noto Sans CJK HK:mode=harf;",
-        "Noto Color Emoji:mode=harf;"
-      })
-      luaotfload.add_fallback("mainfb-bold", {
-        "Noto Sans CJK HK/B:mode=harf;",
-        "Noto Color Emoji:mode=harf;"
-      })
-      luaotfload.add_fallback("mainfb-it", {
-        "Noto Sans CJK HK/I:mode=harf;",
-        "Noto Color Emoji:mode=harf;"
-      })
-      luaotfload.add_fallback("mainfb-bi", {
-        "Noto Sans CJK HK/BI:mode=harf;",
-        "Noto Color Emoji:mode=harf;"
-      })
-    }
+    % Resolve emoji selection (shared with XeLaTeX).
+    \ts@pickemoji
+
+    \ifts@nolualfallback\else
+      \directlua{
+        local cjk = [[\ts@cjkfont]]
+        local emoji = [[\ts@emojiResolved]]
+        luaotfload.add_fallback("mainfb-reg", {
+          cjk .. ":mode=harf;",
+          emoji .. ":mode=harf;"
+        })
+        luaotfload.add_fallback("mainfb-bold", {
+          cjk .. "/B:mode=harf;",
+          emoji .. ":mode=harf;"
+        })
+        luaotfload.add_fallback("mainfb-it", {
+          cjk .. "/I:mode=harf;",
+          emoji .. ":mode=harf;"
+        })
+        luaotfload.add_fallback("mainfb-bi", {
+          cjk .. "/BI:mode=harf;",
+          emoji .. ":mode=harf;"
+        })
+      }
+    \fi
 
     \setmainfont{CMU Serif}[
       RawFeature = {fallback=mainfb-reg},
@@ -85,41 +155,46 @@
       BoldItalicFeatures = {RawFeature={fallback=mainfb-bi}},
     ]
 
-    \setmathfont{Latin Modern Math}
+    \ifts@nomath\else
+      \setmathfont{Latin Modern Math}
+    \fi
   \else
-    % XeLaTeX path (no Lua fallbacks); if fontconfig lookup fails, fall back to explicit file paths.
+    % XeLaTeX path (no Lua fallbacks); if fontconfig lookup fails or fontsdir provided, use explicit file paths.
     \IfFontExistsTF{CMU Serif}{%
       \setmainfont{CMU Serif}
       \setsansfont{CMU Sans Serif}
       \setmonofont{CMU Typewriter Text}
-      \setmathfont{Latin Modern Math}
     }{%
       \ts@setupcmu@files
     }%
+    \ifts@nomath\else
+      \setmathfont{Latin Modern Math}
+    \fi
 
-    % Add manual fallbacks for CJK and emoji with ucharclasses.
-    \RequirePackage{ucharclasses}
-    \newfontfamily\tsCJK{Noto Sans CJK HK}[Scale=MatchLowercase]
-    \IfFontExistsTF{Noto Color Emoji}{%
-      \newfontfamily\tsEmoji{Noto Color Emoji}[Renderer=Harfbuzz]
-    }{%
-      \IfFontExistsTF{Noto Emoji}{%
-        \newfontfamily\tsEmoji{Noto Emoji}[Renderer=Harfbuzz]
-      }{%
-        \IfFontExistsTF{Symbola}{%
-          \newfontfamily\tsEmoji{Symbola}
-        }{%
-          \newfontfamily\tsEmoji{CMU Serif} % last-resort placeholder
-        }%
-      }%
-    }%
-    \setDefaultTransitions{}{} % keep current font as default
-    \setTransitionTo{Hiragana}{\tsCJK}
-    \setTransitionTo{Katakana}{\tsCJK}
-    \setTransitionTo{Han}{\tsCJK}
-    \setTransitionTo{Emoticons}{\tsEmoji}
-    \setTransitionTo{MiscellaneousSymbolsAndPictographs}{\tsEmoji}
-    \setTransitionTo{SupplementalSymbolsAndPictographs}{\tsEmoji}
-    \setTransitionTo{TransportAndMapSymbols}{\tsEmoji}
+    \ifts@nouchar\else
+      \RequirePackage{ucharclasses}
+      \newfontfamily\tsCJK{%
+        \ts@cjkfont
+      }[
+        \ts@PathOpt
+        Scale=MatchLowercase
+      ]
+      \ts@pickemoji
+      \newfontfamily\tsEmoji{%
+        \ts@emojiResolved
+      }[
+        \ts@PathOpt
+        Renderer=Harfbuzz
+      ]
+      \setDefaultTransitions{}{} % keep current font as default
+      \setTransitionTo{Hiragana}{\tsCJK}
+      \setTransitionTo{Katakana}{\tsCJK}
+      \setTransitionTo{Han}{\tsCJK}
+      \setTransitionTo{Emoticons}{\tsEmoji}
+      \setTransitionTo{MiscellaneousSymbolsAndPictographs}{\tsEmoji}
+      \setTransitionTo{SupplementalSymbolsAndPictographs}{\tsEmoji}
+      \setTransitionTo{TransportAndMapSymbols}{\tsEmoji}
+    \fi
   \fi
 \fi
+\makeatother
